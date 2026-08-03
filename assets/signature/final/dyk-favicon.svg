@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">D. favicon</title>
+  <desc id="desc">Official D.Y. Kim favicon using the same D-point design as the app icon.</desc>
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="#17191D"/>
+  <g transform="translate(2.4 2.4) scale(2.4)">
+    <path d="M5 4v16h3.5c5.3 0 8.5-3 8.5-8s-3.2-8-8.5-8H5Z" fill="none" stroke="#F3F5F7" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/>
+    <circle cx="19.5" cy="19.5" r="2.2" fill="#E6C45B"/>
+  </g>
+</svg>

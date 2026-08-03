@@ -1,0 +1,152 @@
+{
+  "asset_version": "signature-assets-v2",
+  "design_document_version": "1.3",
+  "released": "2026-07-27",
+  "authoritative_format": "svg",
+  "colors": {
+    "signature_ink_light": "#17191D",
+    "signature_ink_dark": "#F3F5F7",
+    "signature_brass_light": "#715A12",
+    "signature_brass_dark": "#E6C45B"
+  },
+  "files": [
+    {
+      "path": "dyk-wordmark-on-light.svg",
+      "role": "wordmark",
+      "surface": "light",
+      "sha256": "ae3e1f1444a2b18e7d3cbafc6fb2c2c5ef1ea159e280f95a1b346465c9c93fac"
+    },
+    {
+      "path": "dyk-wordmark-on-dark.svg",
+      "role": "wordmark",
+      "surface": "dark",
+      "sha256": "e7f894e8bb07e4fea253035449f79c25afe4c15b1a641492c4e5af2a2b1f71e2"
+    },
+    {
+      "path": "dyk-wordmark-mono.svg",
+      "role": "wordmark",
+      "surface": "mono",
+      "sha256": "f1cd34531a927377769d5c14c8d86e5749417a459a54d91e9a7a637d3da21040"
+    },
+    {
+      "path": "dyk-symbol-on-light.svg",
+      "role": "compact-symbol",
+      "surface": "light",
+      "sha256": "83cf8393ee830e19448e09ed45cc104e4da797cc9a08abbba02ec53017622a05"
+    },
+    {
+      "path": "dyk-symbol-on-dark.svg",
+      "role": "compact-symbol",
+      "surface": "dark",
+      "sha256": "4edc9bf9f3e8a738bce93dc8e6a8af423254b765a7fdd9048bb214ba9ae73e60"
+    },
+    {
+      "path": "dyk-credit-on-light.svg",
+      "role": "creator-credit",
+      "surface": "light",
+      "sha256": "178657eef369c55654603ac665dc963a73d17f1f92d2e9a07611bd658bfbb1cf"
+    },
+    {
+      "path": "dyk-credit-on-dark.svg",
+      "role": "creator-credit",
+      "surface": "dark",
+      "sha256": "21cae94c51a28fc9ff49b9a9c90db5201e1c75a7cfef68af0bb8f266a697d3bc"
+    },
+    {
+      "path": "dyk-app-icon-master.svg",
+      "role": "app-icon-master",
+      "surface": "self-contained",
+      "sha256": "31c6fa12c1986abd507f7c025aa9205f13af964a5f4328c3aa39e7681da75326"
+    },
+    {
+      "path": "dyk-favicon.svg",
+      "role": "favicon-master",
+      "surface": "self-contained",
+      "sha256": "922e9ec93f3abddd00f5e5b8e3a76810cbf92b731082abff54995123122694aa"
+    },
+    {
+      "path": "dyk-wordmark-on-light@2x.png",
+      "role": "wordmark-fallback",
+      "surface": "light",
+      "sha256": "adbbbdacf153839969c85eb9fbc3474fd1b7befb8d4f5abc388954876fec111f"
+    },
+    {
+      "path": "dyk-wordmark-on-dark@2x.png",
+      "role": "wordmark-fallback",
+      "surface": "dark",
+      "sha256": "d0ddc2972c879e1564b5f1678bd778d8a4f6febe975d10571d4cf4f449965795"
+    },
+    {
+      "path": "dyk-wordmark-mono@2x.png",
+      "role": "wordmark-fallback",
+      "surface": "mono",
+      "sha256": "a605937669b63a16f1f778e228b5941564a85472bb3171b716036c5a2dc5fcbf"
+    },
+    {
+      "path": "dyk-credit-on-light@2x.png",
+      "role": "creator-credit-fallback",
+      "surface": "light",
+      "sha256": "e41da08d546e115f2951e0bef0eac1133dd07fd33165cf67f30b2455ea1a8494"
+    },
+    {
+      "path": "dyk-credit-on-dark@2x.png",
+      "role": "creator-credit-fallback",
+      "surface": "dark",
+      "sha256": "469fa191c7669ea838832a6bacd035e9e6151946fe40fbfb3954b691c26cbf80"
+    },
+    {
+      "path": "dyk-symbol-on-light-24.png",
+      "role": "compact-symbol-fallback",
+      "surface": "light",
+      "sha256": "985ac5c44f51716957fc5076d0ae3f9f4242216894de1329c7645573d3f0ceb1"
+    },
+    {
+      "path": "dyk-symbol-on-light-48.png",
+      "role": "compact-symbol-fallback",
+      "surface": "light",
+      "sha256": "8f5cf84be57d81c4aa59fd5b1f46a4331a403511c6ee9b77ffd9b2810dac43dc"
+    },
+    {
+      "path": "dyk-symbol-on-dark-24.png",
+      "role": "compact-symbol-fallback",
+      "surface": "dark",
+      "sha256": "5b7c5efad0f1ba80b96454ee3053877d047fedfb7d30fd9662c0be725147a68e"
+    },
+    {
+      "path": "dyk-symbol-on-dark-48.png",
+      "role": "compact-symbol-fallback",
+      "surface": "dark",
+      "sha256": "89a2b6192a87c2944b51467f52d89aabae24abbe1c71dbca239c1f8fdaa3e235"
+    },
+    {
+      "path": "dyk-app-icon-1024.png",
+      "role": "app-icon",
+      "surface": "self-contained",
+      "sha256": "1c27006ed23cad0ee49834c99df82a0baeccb954d60bd31d559e0b9e62b6d4cc"
+    },
+    {
+      "path": "dyk-favicon-64.png",
+      "role": "favicon",
+      "surface": "self-contained",
+      "sha256": "10fc5e5142c8bd2afc0427b1f8714f1526fcd4a66f9445cfd4f424d33f543c0c"
+    },
+    {
+      "path": "dyk-favicon-48.png",
+      "role": "favicon",
+      "surface": "self-contained",
+      "sha256": "a5d7fa57dc1763dfc8be7d1ed222290cb32575cb717cd79f68297ab7ce36043a"
+    },
+    {
+      "path": "dyk-favicon-32.png",
+      "role": "favicon",
+      "surface": "self-contained",
+      "sha256": "6d4b24052341df22b74a891e9b1123fcb4859a6a6438d0057af3a9250280aebb"
+    },
+    {
+      "path": "dyk-favicon-16.png",
+      "role": "favicon",
+      "surface": "self-contained",
+      "sha256": "609a631b604325c04440b2b611c57f092c3d466d0da246f41ad0bb6a6b066ab2"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="160" viewBox="0 0 600 160" role="img" aria-labelledby="title desc">
+  <title id="title">D.Y. Kim</title>
+  <desc id="desc">Official D.Y. Kim wordmark for dark backgrounds.</desc>
+  <g fill="none" stroke="#F3F5F7" stroke-width="12" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M34 38v84h26c32 0 51-17 51-42S92 38 60 38H34"/>
+    <path d="M158 38l30 40 30-40M188 78v44"/>
+    <path d="M270 38v84M270 84l43-46M287 66l32 56"/>
+    <path d="M343 68v54"/>
+    <path d="M375 68v54M375 91c0-15 9-25 22-25 14 0 22 9 22 25v31M419 91c0-15 9-25 22-25 14 0 22 9 22 25v31"/>
+  </g>
+  <circle cx="343" cy="44" r="6" fill="#F3F5F7"/>
+  <g fill="#E6C45B">
+    <circle cx="133" cy="116" r="7"/>
+    <circle cx="239" cy="116" r="7"/>
+  </g>
+</svg>
