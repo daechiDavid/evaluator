@@ -68,6 +68,7 @@ export const generatedSentenceSchema = z.object({
 
 export const studentResultSchema = z.object({
   studentIndex: z.number().int().positive(),
+  subject: z.string().trim().min(1).max(80).optional(),
   paragraph: z.string(),
   sentences: z.array(generatedSentenceSchema),
   evidence: z.array(z.string()),

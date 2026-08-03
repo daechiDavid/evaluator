@@ -103,6 +103,13 @@ h3 { font-size: 18px; }
 .chip-button:hover, .chip-selected { border-color: var(--text-primary); color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 8%, var(--surface)); }
 .results-section { margin-top: 30px; }
 .results-section > .section-heading { margin-bottom: 14px; }
+.subject-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.subject-tab { min-height: 40px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text-secondary); padding: 6px 16px; font-weight: 700; }
+.subject-tab:hover, .subject-tab.active { border-color: var(--text-primary); color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 8%, var(--surface)); }
+.subject-result-list { display: grid; gap: 10px; }
+.subject-result-row { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 12px; align-items: start; }
+.student-number { display: grid; min-height: 44px; place-items: center; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); color: var(--text-secondary); font-weight: 700; }
+.subject-result-row textarea { min-height: 112px; background: var(--surface); }
 .result-list { display: grid; gap: 16px; }
 .result-card { padding: 20px; }
 .status { border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
@@ -154,6 +161,7 @@ h3 { font-size: 18px; }
   .primary-actions .button-primary { width: 100%; }
   .result-actions { justify-content: stretch; }
   .result-actions button { flex: 1 1 45%; }
+  .subject-result-row { grid-template-columns: 34px minmax(0, 1fr); gap: 8px; }
   .app-footer { align-items: flex-start; flex-direction: column; }
   .app-footer img { max-width: 150px; }
 }

@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const body = feature1RequestSchema.parse(await request.json());
     const indexes = body.regenerateStudentIndex ? [body.regenerateStudentIndex] : body.studentIndices ?? Array.from({ length: body.studentsCount }, (_, index) => index + 1);
     const results = [];
-    for (const studentIndex of indexes) results.push(await generateFeature1Student(studentIndex, body.subjects, body.targetLength, body.commonOptions));
+    for (const studentIndex of indexes) results.push(...await generateFeature1Student(studentIndex, body.subjects, body.targetLength, body.commonOptions));
     return noStore({ results });
   } catch (error) {
     return errorResponse(error);
