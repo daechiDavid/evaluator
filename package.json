@@ -18,13 +18,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.3.0",
-      "onFail": "download"
-    }
-  },
+  "packageManager": "pnpm@10.14.0",
   "type": "module",
   "dependencies": {
     "@google/genai": "^2.15.0",
