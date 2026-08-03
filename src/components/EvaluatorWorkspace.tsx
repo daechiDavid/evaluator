@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { z } from "zod";
@@ -14,6 +14,7 @@ import { ResultCard } from "@/components/ResultCard";
 import { SharedOptions } from "@/components/SharedOptions";
 
 type Feature = StoredState["lastFeature"];
+type OpenPopover = "options" | "data" | null;
 
 const subjectResponseSchema = z.object({ subjects: z.array(evaluationSubjectSchema) });
 
@@ -54,6 +55,8 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [fallbackText, setFallbackText] = useState("");
+  const [openPopover, setOpenPopover] = useState<OpenPopover>(null);
+  const popoverGroupRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // localStorage is unavailable during SSR; this gate prevents the server placeholder from being overwritten.
@@ -62,6 +65,19 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
     setHydrated(true);
   }, [initialFeature]);
   useEffect(() => { if (!hydrated) return; const timer = window.setTimeout(() => setStorageStatus(saveStoredState({ ...state, updatedAt: new Date().toISOString() })), 350); return () => window.clearTimeout(timer); }, [state, hydrated]);
+  useEffect(() => {
+    if (!openPopover) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (popoverGroupRef.current && !popoverGroupRef.current.contains(event.target as Node)) setOpenPopover(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setOpenPopover(null); };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openPopover]);
 
   const feature2Students = useMemo(() => Array.from({ length: state.feature2.studentsCount }, (_, index) => state.feature2.students.find((student) => student.studentIndex === index + 1) ?? { studentIndex: index + 1, keywords: [] }), [state.feature2.students, state.feature2.studentsCount]);
 
@@ -72,7 +88,7 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
 
   const reportError = (error: unknown) => { if (error instanceof ApiError && error.code === "UNAUTHORIZED") setNeedsAccess(true); setMessage(error instanceof Error ? error.message : "요청을 처리하지 못했습니다."); };
   const copy = async (text: string) => { try { await navigator.clipboard.writeText(text); setFallbackText(""); setMessage("클립보드에 복사했습니다."); } catch { setFallbackText(text); setMessage("클립보드 권한이 없어 아래 텍스트를 직접 복사해 주세요."); } };
-  const clearAll = () => { if (!window.confirm("현재 브라우저에 저장된 세 기능의 작업과 결과를 모두 삭제할까요?")) return; clearStoredState(); setState(initialState(feature)); setStorageStatus("saved"); setMessage("브라우저 저장 데이터를 삭제했습니다."); };
+  const clearAll = () => { if (!window.confirm("현재 브라우저에 저장된 세 기능의 작업과 결과를 모두 삭제할까요?")) return; clearStoredState(); setState(initialState(feature)); setStorageStatus("saved"); setOpenPopover(null); setMessage("브라우저 저장 데이터를 삭제했습니다."); };
   const exportAll = () => {
     const feature1Sheets = new Map<string, StudentResult[]>();
     for (const result of state.feature1.results) {
@@ -84,6 +100,7 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
       { name: "기능2_행동특성", results: state.feature2.results, evidenceLabel: "키워드" },
       { name: "기능3_자율활동", results: state.feature3.results, evidenceLabel: "활동 주제" },
     ]);
+    setOpenPopover(null);
   };
 
   if (!hydrated) return <main className="loading-page"><span className="status-point" />저장된 작업을 불러오는 중…</main>;
@@ -190,9 +207,8 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
   </>;
 
   return <main className="app-frame">
-    <header className="app-header"><div className="brand-lockup"><div><span className="eyebrow">D.Y. Kim</span><span className="product-name">Evaluator</span></div><Image src="/assets/signature/final/dyk-symbol-on-light.svg" alt="D.Y. Kim" width={30} height={30} /></div><nav aria-label="주요 기능">{(["feature1", "feature2", "feature3"] as Feature[]).map((item) => <button type="button" className={feature === item ? "nav-button active" : "nav-button"} key={item} onClick={() => setFeature(item)}>{item === "feature1" ? "기능 1 · 교과 평가" : item === "feature2" ? "기능 2 · 행동특성" : "기능 3 · 자율활동"}</button>)}</nav><details className="data-menu"><summary className="data-button">브라우저 데이터 관리</summary><div className="data-menu-panel"><button type="button" className="button-secondary" onClick={exportAll}>전체 확정 결과 XLSX</button><button type="button" className="button-secondary" onClick={clearAll}>전체 저장 데이터 삭제</button></div></details></header>
+    <header className="app-header"><div className="brand-lockup"><div><span className="eyebrow">D.Y. Kim</span><span className="product-name">Evaluator</span></div><Image src="/assets/signature/final/dyk-symbol-on-light.svg" alt="D.Y. Kim" width={30} height={30} /></div><nav aria-label="주요 기능">{(["feature1", "feature2", "feature3"] as Feature[]).map((item) => <button type="button" className={feature === item ? "nav-button active" : "nav-button"} key={item} onClick={() => setFeature(item)}>{item === "feature1" ? "기능 1 · 교과 평가" : item === "feature2" ? "기능 2 · 행동특성" : "기능 3 · 자율활동"}</button>)}</nav><div className="header-actions" ref={popoverGroupRef}><SharedOptions value={commonOptions} onChange={setCommonOptions} open={openPopover === "options"} onToggle={() => setOpenPopover((current) => current === "options" ? null : "options")} /><div className="data-menu"><button type="button" className="data-button" aria-haspopup="dialog" aria-expanded={openPopover === "data"} onClick={() => setOpenPopover((current) => current === "data" ? null : "data")}>브라우저 데이터 관리</button>{openPopover === "data" && <div className="data-menu-panel popover-panel" role="dialog" aria-label="브라우저 데이터 관리"><button type="button" className="button-secondary" onClick={exportAll}>전체 확정 결과 XLSX</button><button type="button" className="button-secondary" onClick={clearAll}>전체 저장 데이터 삭제</button></div>}</div></div></header>
     <div className="save-bar"><span className="status-point" />{storageStatus === "failed" ? "저장 실패 · 메모리에서 계속 작업" : storageStatus === "saved" ? "이 브라우저에 저장됨" : "저장 준비됨"}</div>
-    <SharedOptions value={commonOptions} onChange={setCommonOptions} />
     {message && <div className="notice" role="status">{message}</div>}
     {fallbackText && <div className="fallback-copy"><label>직접 복사할 결과<textarea readOnly value={fallbackText} /></label><button type="button" className="button-secondary" onClick={() => setFallbackText("")}>닫기</button></div>}
     <div key={feature}>{feature === "feature1" ? renderFeature1() : feature === "feature2" ? renderFeature2() : renderFeature3()}</div>
