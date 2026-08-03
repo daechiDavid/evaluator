@@ -52,9 +52,9 @@ function resultFor(studentIndex: number, sentences: string[], reviews: ReturnTyp
 }
 
 export async function generateFeature1Student(studentIndex: number, subjects: EvaluationSubject[], targetLength: number, options?: CommonOptions): Promise<StudentResult> {
-  const elements = subjects.flatMap((subject) => subject.elements.map((element) => ({ subject: subject.subject, criteria: subject.criteria, element, upperDescriptor: subject.upperDescriptor })));
-  const response = await makeSentences(`기능 1 교과 평가 문장을 작성하세요. 모든 문장은 한국어이며 ‘상’ 성취 중심이어야 합니다. 학생 ${studentIndex}의 근거는 다음 교과·성취기준·평가요소뿐입니다. 입력에 없는 활동, 수치, 수상, 역할과 구체적 성취를 추가하지 마세요.\n${JSON.stringify(elements)}`, elements.length, targetLength, options);
-  return resultFor(studentIndex, response.sentences, response.reviews, elements.map((item) => `${item.subject} · ${item.element}`));
+  const areas = subjects.map((subject) => ({ subject: subject.subject, area: subject.area, criteria: subject.criteria, elements: subject.elements, upperDescriptor: subject.upperDescriptor }));
+  const response = await makeSentences(`기능 1 교과 평가 문장을 작성하세요. 모든 문장은 한국어이며 ‘상’ 성취 중심이어야 합니다. 학생 ${studentIndex}의 근거는 다음 교과별 평가 영역·성취기준·평가요소뿐입니다. 평가 영역마다 정확히 한 문장씩 작성하고, 입력에 없는 활동, 수치, 수상, 역할과 구체적 성취를 추가하지 마세요. 생성된 문장들은 한 학생의 한 문단으로 이어집니다.\n${JSON.stringify(areas)}`, areas.length, targetLength, options);
+  return resultFor(studentIndex, response.sentences, response.reviews, areas.map((item) => `${item.subject} · ${item.area || item.elements.join(", ")}`));
 }
 
 export async function generateFeature2Student(studentIndex: number, keywords: string[], targetLength: number, options?: CommonOptions): Promise<StudentResult> {
