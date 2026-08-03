@@ -16,13 +16,17 @@ const storedStateSchema = z.object({
 
 export type StoredState = z.infer<typeof storedStateSchema>;
 
+function withoutTemporaryEvidence(state: StoredState): StoredState {
+  return { ...state, feature1: { ...state.feature1, subjects: [] } };
+}
+
 export function loadStoredState(fallback: StoredState): StoredState {
   if (typeof window === "undefined") return fallback;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return fallback;
     const parsed = storedStateSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : fallback;
+    return parsed.success ? withoutTemporaryEvidence(parsed.data) : fallback;
   } catch {
     return fallback;
   }
@@ -31,7 +35,7 @@ export function loadStoredState(fallback: StoredState): StoredState {
 export function saveStoredState(state: StoredState): "saved" | "failed" {
   if (typeof window === "undefined") return "failed";
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(withoutTemporaryEvidence(state)));
     return "saved";
   } catch {
     return "failed";

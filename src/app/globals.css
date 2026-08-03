@@ -84,6 +84,11 @@ h3 { font-size: 18px; }
 .subject-editor { display: grid; gap: 14px; border-top: 1px solid var(--border); margin-top: 20px; padding-top: 20px; }
 .subject-title span, .student-card-heading span { color: var(--text-secondary); font-size: 13px; }
 .primary-actions { display: flex; align-items: center; gap: 16px; margin: 24px 0 34px; }
+.generation-progress { display: grid; gap: 8px; margin: 24px 0 34px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); padding: 16px; box-shadow: var(--shadow); }
+.generation-progress-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: 13px; }
+.generation-progress-heading strong { color: var(--text-primary); }
+.progress-track { height: 10px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--border) 65%, var(--surface)); }
+.progress-fill { display: block; height: 100%; border-radius: inherit; background: var(--focus); transition: width .2s ease; }
 .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .shared-options, .data-menu { position: relative; }
 .shared-options-button { white-space: nowrap; }

@@ -15,6 +15,7 @@ import { SharedOptions } from "@/components/SharedOptions";
 
 type Feature = StoredState["lastFeature"];
 type OpenPopover = "options" | "data" | null;
+type Feature1Progress = { phase: string; completed: number; total: number };
 
 const subjectResponseSchema = z.object({ subjects: z.array(evaluationSubjectSchema) });
 
@@ -54,6 +55,7 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
   const [needsAccess, setNeedsAccess] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
+  const [feature1Progress, setFeature1Progress] = useState<Feature1Progress | null>(null);
   const [fallbackText, setFallbackText] = useState("");
   const [openPopover, setOpenPopover] = useState<OpenPopover>(null);
   const popoverGroupRef = useRef<HTMLDivElement>(null);
@@ -108,7 +110,9 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
 
   const handleSubjectExtraction = async (files: FileList | null) => {
     if (!files?.length) return;
-    setBusy(true); setProgress(""); setMessage("");
+    const studentsCount = state.feature1.studentsCount;
+    const targetLength = state.feature1.targetLength;
+    setBusy(true); setProgress(""); setMessage(""); setFeature1Progress({ phase: "평가계획서 분석 중", completed: 0, total: studentsCount });
     try {
       const form = new FormData();
       Array.from(files).slice(0, LIMITS.maxFiles).forEach((file) => form.append("files", file));
@@ -117,8 +121,8 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
       if (!response.ok) throw new ApiError(payload.error ?? "문서를 분석하지 못했습니다.", payload.code ?? "DOCUMENT_FAILED");
       const parsed = subjectResponseSchema.parse(payload);
       setState((current) => ({ ...current, feature1: { ...current.feature1, subjects: parsed.subjects, results: [] } }));
-      setMessage(`${parsed.subjects.length}개 교과 구조를 불러왔습니다.`);
-    } catch (error) { reportError(error); } finally { setBusy(false); }
+      await generateFeature1(undefined, { subjects: parsed.subjects, studentsCount, targetLength });
+    } catch (error) { setFeature1Progress((value) => value ? { ...value, phase: "처리 실패" } : null); reportError(error); } finally { setBusy(false); }
   };
 
   const handleActivityExtraction = async (file: File | undefined) => {
@@ -136,22 +140,28 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
     } catch (error) { reportError(error); } finally { setBusy(false); }
   };
 
-  const generateFeature1 = async (studentIndex?: number) => {
+  const generateFeature1 = async (studentIndex?: number, overrides: { subjects?: z.infer<typeof subjectResponseSchema>["subjects"]; studentsCount?: number; targetLength?: number } = {}) => {
     const current = state.feature1;
-    if (current.subjects.length === 0) { setMessage("먼저 평가계획서를 업로드해 교과 구조를 추출하세요."); return; }
-    setBusy(true); setMessage("");
+    const subjects = overrides.subjects ?? current.subjects;
+    const studentsCount = overrides.studentsCount ?? current.studentsCount;
+    const targetLength = overrides.targetLength ?? current.targetLength;
+    if (subjects.length === 0) { setMessage("먼저 평가계획서를 업로드해 교과 구조를 추출하세요."); return; }
+    setBusy(true); setProgress(""); setMessage("");
     try {
-      const indexes = studentIndex ? [studentIndex] : Array.from({ length: current.studentsCount }, (_, index) => index + 1);
+      const indexes = studentIndex ? [studentIndex] : Array.from({ length: studentsCount }, (_, index) => index + 1);
+      setFeature1Progress({ phase: studentIndex ? "문장 재생성 중" : "문장 생성 중", completed: 0, total: indexes.length });
       let allResults: StudentResult[] = studentIndex ? state.feature1.results : [];
       for (let offset = 0; offset < indexes.length; offset += LIMITS.maxBatchStudents) {
         const chunk = indexes.slice(offset, offset + LIMITS.maxBatchStudents);
-        setProgress(`작업 묶음 ${Math.floor(offset / LIMITS.maxBatchStudents) + 1} / ${Math.ceil(indexes.length / LIMITS.maxBatchStudents)} 생성 중`);
-        const payload = await requestJson<{ results: StudentResult[] }>("/api/generate/feature-1", { ...current, studentsCount: chunk.length, studentIndices: chunk, commonOptions, ...(studentIndex ? { regenerateStudentIndex: studentIndex } : {}) });
+        const payload = await requestJson<{ results: StudentResult[] }>("/api/generate/feature-1", { ...current, subjects, targetLength, studentsCount: chunk.length, studentIndices: chunk, commonOptions, ...(studentIndex ? { regenerateStudentIndex: studentIndex } : {}) });
         allResults = payload.results.reduce(updateResult, allResults);
-        setState((value) => ({ ...value, feature1: { ...value.feature1, results: allResults } }));
+        setFeature1Progress({ phase: studentIndex ? "문장 재생성 중" : "문장 생성 중", completed: offset + chunk.length, total: indexes.length });
+        setState((value) => ({ ...value, feature1: { ...value.feature1, subjects, results: allResults } }));
       }
+      setFeature1Progress({ phase: "생성 완료", completed: indexes.length, total: indexes.length });
+      setState((value) => ({ ...value, feature1: { ...value.feature1, subjects: [], results: allResults } }));
       setMessage("기능 1 문장 생성을 완료했습니다. 각 결과를 검토하고 확정하세요.");
-    } catch (error) { reportError(error); } finally { setBusy(false); setProgress(""); }
+    } catch (error) { setFeature1Progress((value) => value ? { ...value, phase: "생성 실패" } : null); reportError(error); } finally { setBusy(false); setProgress(""); }
   };
 
   const setFeature2Students = (students: typeof state.feature2.students) => setState((current) => ({ ...current, feature2: { ...current.feature2, students } }));
@@ -183,11 +193,11 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
   const renderFeature1 = () => <>
     <div className="feature-intro"><span className="eyebrow">기능 1 · 교과 평가</span><h1>평가계획서의 근거로 교과 문장을 만듭니다.</h1><p className="feature1-subtitle">학생 이름 없이 순번만 사용합니다. 문장 생성은 항상 ‘상’ 성취 기준으로 수행되며, 상·중·하 선택은 제공하지 않습니다.</p></div>
     <div className="feature1-steps">
-    <section className="panel"><div className="section-heading"><div><span className="eyebrow">1단계</span><h2>평가계획서 준비</h2></div><label className="button-secondary file-button">파일 선택<input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.pptx,.xlsx" onChange={(event) => void handleSubjectExtraction(event.target.files)} /></label></div><p className="privacy-note">PDF, 이미지, DOCX, PPTX, XLSX를 지원합니다. HWP/HWPX는 PDF로 변환해 주세요. 학생 식별정보가 포함된 문서는 업로드하지 마세요.</p>{busy && <div className="inline-loading"><span className="status-point" />서버에서 문서 구조를 확인하는 중…</div>}{state.feature1.subjects.length === 0 && !busy && <div className="empty-state">아직 평가계획서가 없습니다. 파일을 선택하면 교과와 평가요소를 추출합니다.</div>}</section>
-    <section className="panel"><div className="section-heading"><div><span className="eyebrow">2–3단계</span><h2>생성 조건과 근거 검토</h2></div></div><div className="two-column"><label>필요 학생 수<input type="number" min={1} max={LIMITS.maxStudents} value={state.feature1.studentsCount} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, studentsCount: Math.min(LIMITS.maxStudents, Math.max(1, Number(event.target.value) || 1)) } }))} /></label><label>한 문장당 목표 글자 수<input type="number" min={20} max={LIMITS.maxTargetLength} value={state.feature1.targetLength} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, targetLength: Math.min(LIMITS.maxTargetLength, Math.max(20, Number(event.target.value) || 20)) } }))} /></label></div><div className="fixed-rule"><span className="status-point status-point-brass" />모든 결과에 ‘상’ 성취 기준 자동 적용</div>{state.feature1.subjects.map((subject, index) => <div className="subject-editor" key={`${subject.subject}-${index}`}><div className="subject-title"><h3>{subject.subject || "교과"}</h3><span>{subject.elements.length}개 평가요소</span></div><div className="two-column"><label>학년<input value={subject.grade} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, subjects: current.feature1.subjects.map((item, itemIndex) => itemIndex === index ? { ...item, grade: event.target.value } : item) } }))} /></label><label>학기<input value={subject.semester} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, subjects: current.feature1.subjects.map((item, itemIndex) => itemIndex === index ? { ...item, semester: event.target.value } : item) } }))} /></label></div><label>평가 영역<input value={subject.area} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, subjects: current.feature1.subjects.map((item, itemIndex) => itemIndex === index ? { ...item, area: event.target.value } : item) } }))} /></label><label>성취기준<textarea value={subject.criteria.join("\n")} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, subjects: current.feature1.subjects.map((item, itemIndex) => itemIndex === index ? { ...item, criteria: event.target.value.split("\n").filter(Boolean) } : item) } }))} /></label><label>평가요소<textarea value={subject.elements.join("\n")} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, subjects: current.feature1.subjects.map((item, itemIndex) => itemIndex === index ? { ...item, elements: event.target.value.split("\n").filter(Boolean) } : item) } }))} /></label><label>상 기준 참고 내용<textarea value={subject.upperDescriptor} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, subjects: current.feature1.subjects.map((item, itemIndex) => itemIndex === index ? { ...item, upperDescriptor: event.target.value } : item) } }))} placeholder="평가계획서에 상 기준이 없으면 비워 둡니다." /></label></div>)}</section>
+    <section className="panel"><div className="section-heading"><div><span className="eyebrow">1단계</span><h2>조건 확인</h2></div></div><div className="two-column"><label>필요 학생 수<input type="number" min={1} max={LIMITS.maxStudents} value={state.feature1.studentsCount} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, studentsCount: Math.min(LIMITS.maxStudents, Math.max(1, Number(event.target.value) || 1)), results: [] } }))} /></label><label>목표 글자 수<input type="number" min={20} max={LIMITS.maxTargetLength} value={state.feature1.targetLength} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, targetLength: Math.min(LIMITS.maxTargetLength, Math.max(20, Number(event.target.value) || 20)), results: [] } }))} /></label></div><div className="fixed-rule"><span className="status-point status-point-brass" />모든 문장은 ‘상’ 성취 기준으로 생성됩니다.</div></section>
+    <section className="panel"><div className="section-heading"><div><span className="eyebrow">2단계</span><h2>평가계획서 업로드</h2></div><label className="button-secondary file-button">평가계획서 업로드<input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.pptx,.xlsx" disabled={busy} onChange={(event) => void handleSubjectExtraction(event.target.files)} /></label></div><p className="privacy-note">평가계획서를 업로드하면 교과별 영역을 확인한 뒤 설정한 학생 수만큼 자동으로 문장을 생성합니다.</p>{state.feature1.subjects.length > 0 && !busy && <div className="empty-state">{state.feature1.subjects.length}개 교과 영역을 확인했습니다. 아래 결과를 검토해 주세요.</div>}{busy && <div className="inline-loading"><span className="status-point" />{feature1Progress?.phase ?? "문장을 생성하는 중…"}</div>}</section>
     </div>
-    <div className="primary-actions"><button type="button" className="button-primary" onClick={() => void generateFeature1()} disabled={busy || state.feature1.subjects.length === 0}>{busy ? "생성 중…" : `학생 ${state.feature1.studentsCount}명 문장 생성`}</button><span className="action-hint">예상 문장 수: {state.feature1.studentsCount * state.feature1.subjects.reduce((sum, subject) => sum + subject.elements.length, 0)}개</span>{progress && <span className="action-hint" role="status">{progress}</span>}</div>
-    {renderResults(state.feature1.results, state.feature1.targetLength, "기능1", async (index) => { setBusy(true); try { const payload = await requestJson<{ results: StudentResult[] }>("/api/generate/feature-1", { ...state.feature1, commonOptions, regenerateStudentIndex: index }); setState((current) => ({ ...current, feature1: { ...current.feature1, results: payload.results.reduce(updateResult, current.feature1.results) } })); } catch (error) { reportError(error); } finally { setBusy(false); } }, (results) => setState((current) => ({ ...current, feature1: { ...current.feature1, results } })))}
+    {feature1Progress && <div className="generation-progress" role="status" aria-live="polite"><div className="generation-progress-heading"><strong>{feature1Progress.phase}</strong><span>{feature1Progress.completed} / {feature1Progress.total}명</span></div><div className="progress-track" role="progressbar" aria-label="기능1 문장 생성 진행률" aria-valuemin={0} aria-valuemax={feature1Progress.total} aria-valuenow={feature1Progress.completed}><span className="progress-fill" style={{ width: `${feature1Progress.total > 0 ? Math.round((feature1Progress.completed / feature1Progress.total) * 100) : 0}%` }} /></div></div>}
+    {renderResults(state.feature1.results, state.feature1.targetLength, "기능1", async (index) => { if (state.feature1.subjects.length === 0) { setMessage("문장 재생성은 평가계획서를 다시 업로드한 뒤 사용할 수 있습니다."); return; } setBusy(true); try { const payload = await requestJson<{ results: StudentResult[] }>("/api/generate/feature-1", { ...state.feature1, commonOptions, regenerateStudentIndex: index }); setState((current) => ({ ...current, feature1: { ...current.feature1, results: payload.results.reduce(updateResult, current.feature1.results) } })); } catch (error) { reportError(error); } finally { setBusy(false); } }, (results) => setState((current) => ({ ...current, feature1: { ...current.feature1, results } })))}
   </>;
 
   const toggleKeyword = (studentIndex: number, label: string) => setFeature2Students(feature2Students.map((student) => student.studentIndex === studentIndex ? { ...student, keywords: student.keywords.includes(label) ? student.keywords.filter((item) => item !== label) : [...student.keywords, label].slice(0, LIMITS.maxKeywordsPerStudent) } : student));
@@ -209,7 +219,7 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
   </>;
 
   return <main className="app-frame">
-    <header className="app-header"><div className="brand-lockup"><Image src="/assets/signature/final/dyk-symbol-on-light.svg" alt="D.Y. Kim" width={52} height={52} /><div className="brand-copy"><span className="eyebrow">D.Y. Kim</span><span className="product-name">Evaluator</span></div></div><nav aria-label="주요 기능">{(["feature1", "feature2", "feature3"] as Feature[]).map((item) => <button type="button" className={feature === item ? "nav-button active" : "nav-button"} key={item} onClick={() => setFeature(item)}>{item === "feature1" ? "기능 1 · 교과 평가" : item === "feature2" ? "기능 2 · 행동특성" : "기능 3 · 자율활동"}</button>)}</nav><div className="header-actions" ref={popoverGroupRef}><SharedOptions value={commonOptions} onChange={setCommonOptions} open={openPopover === "options"} onToggle={() => setOpenPopover((current) => current === "options" ? null : "options")} /><div className="data-menu"><button type="button" className="data-button" aria-haspopup="dialog" aria-expanded={openPopover === "data"} onClick={() => setOpenPopover((current) => current === "data" ? null : "data")}>브라우저 데이터 관리</button>{openPopover === "data" && <div className="data-menu-panel popover-panel" role="dialog" aria-label="브라우저 데이터 관리"><button type="button" className="button-secondary" onClick={exportAll}>전체 엑셀 다운로드</button><button type="button" className="button-secondary" onClick={clearAll}>전체 저장 데이터 삭제</button></div>}</div></div></header>
+    <header className="app-header"><div className="brand-lockup"><Image src="/assets/signature/final/dyk-symbol-on-light.svg" alt="D.Y. Kim" width={52} height={52} /><div className="brand-copy"><span className="eyebrow">D.Y. Kim</span><span className="product-name">Evaluator</span></div></div><nav aria-label="주요 기능">{(["feature1", "feature2", "feature3"] as Feature[]).map((item) => <button type="button" className={feature === item ? "nav-button active" : "nav-button"} key={item} onClick={() => setFeature(item)}>{item === "feature1" ? "기능 1 · 교과 평가" : item === "feature2" ? "기능 2 · 행동특성" : "기능 3 · 자율활동"}</button>)}</nav><div className="header-actions" ref={popoverGroupRef}><SharedOptions value={commonOptions} onChange={setCommonOptions} open={openPopover === "options"} onToggle={() => setOpenPopover((current) => current === "options" ? null : "options")} /><div className="data-menu"><button type="button" className="data-button" aria-haspopup="dialog" aria-expanded={openPopover === "data"} onClick={() => setOpenPopover((current) => current === "data" ? null : "data")}>저장&amp;삭제</button>{openPopover === "data" && <div className="data-menu-panel popover-panel" role="dialog" aria-label="저장&amp;삭제"><button type="button" className="button-secondary" onClick={exportAll}>전체 엑셀 다운로드</button><button type="button" className="button-secondary" onClick={clearAll}>전체 데이터 삭제</button></div>}</div></div></header>
     <div className="save-bar"><span className="status-point" />{storageStatus === "failed" ? "저장 실패 · 메모리에서 계속 작업" : storageStatus === "saved" ? "이 브라우저에 저장됨" : "저장 준비됨"}</div>
     {message && <p className="sr-only" role="status">{message}</p>}
     {fallbackText && <div className="fallback-copy"><label>직접 복사할 결과<textarea readOnly value={fallbackText} /></label><button type="button" className="button-secondary" onClick={() => setFallbackText("")}>닫기</button></div>}
