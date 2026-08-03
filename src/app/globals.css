@@ -58,6 +58,7 @@ input, textarea { width: 100%; border: 1px solid var(--border); border-radius: v
 .feature-intro { padding: 24px 0 20px; max-width: 760px; }
 .feature-intro h1 { margin: 6px 0 10px; font-size: clamp(30px, 4vw, 48px); line-height: 1.15; letter-spacing: -.05em; }
 .feature-intro p { margin: 0; color: var(--text-secondary); font-size: 17px; }
+.feature1-subtitle, .feature3-title { white-space: nowrap; max-width: none; }
 .panel, .result-card, .student-card, .assignment-card { border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow); }
 .panel { padding: 24px; margin-bottom: 20px; }
 .section-heading, .result-heading, .student-card-heading, .subject-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -133,6 +134,7 @@ h3 { font-size: 18px; }
   .two-column, .student-grid, .assignment-grid { grid-template-columns: 1fr; }
   .feature1-steps { grid-template-columns: 1fr; }
   .feature-intro { padding-top: 34px; }
+  .feature1-subtitle, .feature3-title { white-space: normal; }
 }
 
 @media (max-width: 520px) {

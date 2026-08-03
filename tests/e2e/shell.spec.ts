@@ -4,6 +4,7 @@ test("opens feature 1 without exposing API settings", async ({ page }) => {
   await page.addInitScript(() => window.localStorage.clear());
   await page.goto("/feature-1");
   await expect(page.getByRole("heading", { name: /평가계획서의 근거/ })).toBeVisible();
+  await expect(page.locator(".feature1-subtitle")).toHaveCSS("white-space", "nowrap");
   await expect(page.locator(".brand-lockup img")).toBeVisible();
   await expect(page.locator(".feature1-steps > .panel")).toHaveCount(2);
   await expect(page.locator(".notice")).toHaveCount(0);
@@ -23,4 +24,5 @@ test("opens feature 1 without exposing API settings", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /핵심 키워드/ })).toBeVisible();
   await page.getByRole("button", { name: /기능 3/ }).click();
   await expect(page.getByRole("heading", { name: /승인한 활동 주제/ })).toBeVisible();
+  await expect(page.locator(".feature3-title")).toHaveCSS("white-space", "nowrap");
 });
