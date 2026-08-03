@@ -7,6 +7,11 @@ test("opens feature 1 without exposing API settings", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "조건 확인" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "평가계획서 업로드" })).toBeVisible();
   await expect(page.getByRole("button", { name: /문장 생성/ })).toHaveCount(0);
+  const studentCountInput = page.getByLabel("필요 학생 수");
+  await studentCountInput.fill("");
+  await expect(studentCountInput).toHaveValue("");
+  await studentCountInput.fill("33");
+  await expect(studentCountInput).toHaveValue("33");
   await expect(page.locator(".feature1-subtitle")).toHaveCSS("white-space", "nowrap");
   await expect(page.locator(".brand-lockup img")).toBeVisible();
   await expect(page.locator(".feature1-steps > .panel")).toHaveCount(2);
