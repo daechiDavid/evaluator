@@ -5,6 +5,7 @@ import { XMLParser } from "fast-xml-parser";
 import mammoth from "mammoth";
 import ExcelJS from "exceljs";
 import { ACCEPTED_EXTENSIONS, LIMITS } from "@/config/limits";
+import { extractedSubjectsResponseSchema, extractedTopicsResponseSchema, type EvaluationSubject } from "@/domain/schemas";
 import { GeminiFailoverClient } from "@/lib/server/gemini";
 
 export class DocumentError extends Error {
@@ -81,7 +82,19 @@ export async function parseTextDocument(file: File): Promise<ParsedDocument> {
   return { name: file.name, extension, text: text.slice(0, 100_000) };
 }
 
-export async function extractEvaluationSubjects(files: File[]): Promise<unknown> {
+function normalizeSubjects(value: unknown): EvaluationSubject[] {
+  const parsed = extractedSubjectsResponseSchema.safeParse(value);
+  if (!parsed.success) throw new DocumentError("INVALID_MODEL_RESPONSE", "평가계획서에서 교과 구조를 읽지 못했습니다.");
+  return parsed.data.subjects;
+}
+
+function normalizeTopics(value: unknown): string[] {
+  const parsed = extractedTopicsResponseSchema.safeParse(value);
+  if (!parsed.success) throw new DocumentError("INVALID_MODEL_RESPONSE", "문서에서 활동 주제 목록을 읽지 못했습니다.");
+  return parsed.data.topics;
+}
+
+export async function extractEvaluationSubjects(files: File[]): Promise<EvaluationSubject[]> {
   if (files.length === 0 || files.length > LIMITS.maxFiles) throw new DocumentError("FILE_COUNT", "파일 개수를 확인해 주세요.");
   const parsed = await Promise.all(files.map(parseTextDocument));
   const textual = parsed.filter((item) => item.text).map((item) => `파일: ${item.name}\n${item.text}`).join("\n\n");
@@ -94,16 +107,18 @@ export async function extractEvaluationSubjects(files: File[]): Promise<unknown>
     return { inlineData: { data: buffer.toString("base64"), mimeType } };
   }));
   const validMediaParts = mediaParts.filter((part): part is { inlineData: { data: string; mimeType: string } } => part !== null);
-  if (validMediaParts.length === 0) return client.generateJson(prompt);
-  return client.generateJson([{ text: prompt }, ...validMediaParts]);
+  const response = validMediaParts.length === 0
+    ? await client.generateJson<unknown>(prompt)
+    : await client.generateJson<unknown>([{ text: prompt }, ...validMediaParts]);
+  return normalizeSubjects(response);
 }
 
-export async function extractActivityTopics(file: File): Promise<unknown> {
+export async function extractActivityTopics(file: File): Promise<string[]> {
   const parsed = await parseTextDocument(file);
   const client = new GeminiFailoverClient();
   const prompt = `활동 주제 목록을 JSON {"topics":["주제"]}으로 추출하세요. 입력 밖의 주제는 만들지 마세요.\n${parsed.text}`;
-  if (parsed.text) return client.generateJson({ text: prompt });
+  if (parsed.text) return normalizeTopics(await client.generateJson<unknown>({ text: prompt }));
   const { extension, buffer } = await validateFile(file);
   const mimeType = extension === "pdf" ? "application/pdf" : extension === "jpg" || extension === "jpeg" ? "image/jpeg" : `image/${extension}`;
-  return client.generateJson([{ text: prompt }, { inlineData: { data: buffer.toString("base64"), mimeType } }]);
+  return normalizeTopics(await client.generateJson<unknown>([{ text: prompt }, { inlineData: { data: buffer.toString("base64"), mimeType } }]));
 }

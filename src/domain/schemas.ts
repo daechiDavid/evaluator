@@ -48,6 +48,14 @@ export const feature3RequestSchema = z.object({
   commonOptions: commonOptionsSchema.optional(),
 });
 
+export const extractedSubjectsResponseSchema = z.object({
+  subjects: z.array(evaluationSubjectSchema).min(1).max(30),
+});
+
+export const extractedTopicsResponseSchema = z.object({
+  topics: z.array(z.string().trim().min(1).max(LIMITS.maxTopicLength)).min(1).max(LIMITS.maxTopics),
+});
+
 export const generatedSentenceSchema = z.object({
   text: z.string(),
   evidence: z.array(z.string()).default([]),

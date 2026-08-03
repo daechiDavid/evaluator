@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commonOptionsSchema, feature1RequestSchema } from "@/domain/schemas";
+import { commonOptionsSchema, extractedSubjectsResponseSchema, feature1RequestSchema } from "@/domain/schemas";
 
 describe("workspace schema", () => {
   it("does not require a feature 1 level field", () => {
@@ -7,5 +7,11 @@ describe("workspace schema", () => {
     expect(options.customRules).toBe("");
     const parsed = feature1RequestSchema.parse({ studentsCount: 1, targetLength: 60, subjects: [{ subject: "국어", criteria: ["성취기준"], elements: ["평가요소"] }], level: "하" });
     expect("level" in parsed).toBe(false);
+  });
+
+  it("keeps extracted subjects as an array at the API boundary", () => {
+    const subject = { subject: "국어", criteria: ["성취기준"], elements: ["평가요소"] };
+    expect(extractedSubjectsResponseSchema.parse({ subjects: [subject] }).subjects).toHaveLength(1);
+    expect(() => extractedSubjectsResponseSchema.parse({ subjects: { subjects: [subject] } })).toThrow();
   });
 });
