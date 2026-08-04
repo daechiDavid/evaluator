@@ -40,20 +40,22 @@ test("opens feature 1 without exposing API settings", async ({ page }) => {
 
 test("automatically generates after evaluation plan upload and clears temporary evidence", async ({ page }) => {
   await page.addInitScript(() => window.localStorage.clear());
-  await page.route("**/api/documents/extract-evaluation", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ subjects: [{ subject: "국어", area: "읽기", criteria: ["성취기준"], elements: ["평가요소"] }, { subject: "국어", area: "쓰기", criteria: ["성취기준"], elements: ["평가요소"] }] }) }));
+  await page.route("**/api/documents/extract-evaluation", async (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ subjects: [{ subject: "국어", area: "읽기", criteria: ["성취기준"], elements: ["평가요소"] }, { subject: "국어", area: "쓰기", criteria: ["성취기준"], elements: ["평가요소"] }, { subject: "과학", area: "탐구", criteria: ["성취기준"], elements: ["평가요소"] }] }) }));
   await page.route("**/api/generate/feature-1", async (route) => {
-    const body = route.request().postDataJSON() as { studentIndices?: number[] };
+    const body = route.request().postDataJSON() as { studentIndices?: number[]; subjects?: Array<{ subject: string }> };
     const indexes = body.studentIndices ?? [1];
-    const results = indexes.map((studentIndex) => ({
+    const subjects = [...new Set((body.subjects ?? [{ subject: "국어" }]).map((item) => item.subject))];
+    const results = indexes.flatMap((studentIndex) => subjects.map((subject) => ({
       studentIndex,
+      subject,
       paragraph: "첫 문장입니다. 둘째 문장입니다.",
       sentences: [
-        { text: "첫 문장입니다.", evidence: ["국어 · 읽기"], review: { passed: true, issues: [], characterCount: 8 } },
-        { text: "둘째 문장입니다.", evidence: ["국어 · 쓰기"], review: { passed: true, issues: [], characterCount: 9 } },
+        { text: "첫 문장입니다.", evidence: [`${subject} · 영역1`], review: { passed: true, issues: [], characterCount: 8 } },
+        { text: "둘째 문장입니다.", evidence: [`${subject} · 영역2`], review: { passed: true, issues: [], characterCount: 9 } },
       ],
-      evidence: ["국어 · 읽기", "국어 · 쓰기"],
+      evidence: [`${subject} · 영역1`, `${subject} · 영역2`],
       status: "draft",
-    }));
+    })));
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ results }) });
   });
   await page.goto("/feature-1");
@@ -62,6 +64,11 @@ test("automatically generates after evaluation plan upload and clears temporary 
   await page.locator('input[type="file"]').setInputFiles({ name: "evaluation-plan.pdf", mimeType: "application/pdf", buffer: Buffer.from("mock evaluation plan") });
   await expect(page.getByRole("progressbar", { name: "기능1 문장 생성 진행률" })).toHaveAttribute("aria-valuenow", "2");
   await expect(page.getByText("생성 완료")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "학생 1" })).toBeVisible();
+  const paragraph = page.getByRole("textbox", { name: "국어 학생 1 문단" });
+  await expect(paragraph).toHaveValue("첫 문장입니다. 둘째 문장입니다.");
+  await paragraph.fill("수정한 문단입니다.");
+  await expect(paragraph).toHaveValue("수정한 문단입니다.");
+  await expect(page.getByRole("tab", { name: "과학" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "현재 과목 전체 복사" })).toBeVisible();
   await expect.poll(async () => page.evaluate(() => JSON.parse(window.localStorage.getItem("evaluator:v1:workspace") ?? "{}").feature1?.subjects ?? null)).toEqual([]);
 });

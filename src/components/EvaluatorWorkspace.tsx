@@ -43,7 +43,8 @@ async function requestJson<T>(path: string, body: unknown): Promise<T> {
 }
 
 function updateResult(results: StudentResult[], next: StudentResult): StudentResult[] {
-  return results.some((item) => item.studentIndex === next.studentIndex) ? results.map((item) => item.studentIndex === next.studentIndex ? next : item) : [...results, next].sort((a, b) => a.studentIndex - b.studentIndex);
+  const matches = (item: StudentResult) => item.studentIndex === next.studentIndex && item.subject === next.subject;
+  return results.some(matches) ? results.map((item) => matches(item) ? next : item) : [...results, next].sort((a, b) => a.studentIndex - b.studentIndex);
 }
 
 function studentCountFromInput(value: string): number {
@@ -61,6 +62,7 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [feature1Progress, setFeature1Progress] = useState<Feature1Progress | null>(null);
+  const [selectedFeature1Subject, setSelectedFeature1Subject] = useState("");
   const [fallbackText, setFallbackText] = useState("");
   const [openPopover, setOpenPopover] = useState<OpenPopover>(null);
   const popoverGroupRef = useRef<HTMLDivElement>(null);
@@ -87,6 +89,8 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
   }, [openPopover]);
 
   const feature2Students = useMemo(() => Array.from({ length: state.feature2.studentsCount }, (_, index) => state.feature2.students.find((student) => student.studentIndex === index + 1) ?? { studentIndex: index + 1, keywords: [] }), [state.feature2.students, state.feature2.studentsCount]);
+  const feature1ResultSubjects = useMemo(() => Array.from(new Set(state.feature1.results.map((result) => result.subject).filter((subject): subject is string => Boolean(subject)))), [state.feature1.results]);
+  const activeFeature1Subject = feature1ResultSubjects.includes(selectedFeature1Subject) ? selectedFeature1Subject : feature1ResultSubjects[0] ?? "";
 
   const feature = state.lastFeature;
   const setFeature = (next: Feature) => { setState((current) => ({ ...current, lastFeature: next })); router.push(`/${next.replace("feature", "feature-")}`); };
@@ -99,7 +103,7 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
   const exportAll = () => {
     const feature1Sheets = new Map<string, StudentResult[]>();
     for (const result of state.feature1.results) {
-      const subject = result.evidence[0]?.split(" · ")[0] ?? "기능1";
+      const subject = result.subject ?? result.evidence[0]?.split(" · ")[0] ?? "기능1";
       feature1Sheets.set(subject, [...(feature1Sheets.get(subject) ?? []), result]);
     }
     void downloadWorkspaceXlsx([
@@ -118,7 +122,7 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
     const studentsCount = state.feature1.studentsCount;
     const targetLength = state.feature1.targetLength;
     if (studentsCount < 1) { setMessage("필요 학생 수를 입력하세요."); return; }
-    setBusy(true); setProgress(""); setMessage(""); setFeature1Progress({ phase: "평가계획서 분석 중", completed: 0, total: studentsCount });
+    setBusy(true); setProgress(""); setMessage(""); setFeature1Progress({ phase: "계획서를 읽는 중", completed: 0, total: studentsCount });
     try {
       const form = new FormData();
       Array.from(files).slice(0, LIMITS.maxFiles).forEach((file) => form.append("files", file));
@@ -126,6 +130,8 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
       const payload = await response.json() as { subjects?: unknown; error?: string; code?: string };
       if (!response.ok) throw new ApiError(payload.error ?? "문서를 분석하지 못했습니다.", payload.code ?? "DOCUMENT_FAILED");
       const parsed = subjectResponseSchema.parse(payload);
+      setFeature1Progress({ phase: "평가 요소를 추출하는 중", completed: 0, total: studentsCount });
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 180));
       setState((current) => ({ ...current, feature1: { ...current.feature1, subjects: parsed.subjects, results: [] } }));
       await generateFeature1(undefined, { subjects: parsed.subjects, studentsCount, targetLength });
     } catch (error) { setFeature1Progress((value) => value ? { ...value, phase: "처리 실패" } : null); reportError(error); } finally { setBusy(false); }
@@ -156,18 +162,20 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
     setBusy(true); setProgress(""); setMessage("");
     try {
       const indexes = studentIndex ? [studentIndex] : Array.from({ length: studentsCount }, (_, index) => index + 1);
-      setFeature1Progress({ phase: studentIndex ? "문장 재생성 중" : "문장 생성 중", completed: 0, total: indexes.length });
+      setFeature1Progress({ phase: studentIndex ? "문장 재생성 준비 중" : "문장 생성 준비 중", completed: 0, total: indexes.length });
       let allResults: StudentResult[] = studentIndex ? state.feature1.results : [];
       for (let offset = 0; offset < indexes.length; offset += LIMITS.maxBatchStudents) {
         const chunk = indexes.slice(offset, offset + LIMITS.maxBatchStudents);
+        const chunkLabel = chunk.length === 1 ? `${chunk[0]}번 학생` : `${chunk[0]}~${chunk[chunk.length - 1]}번 학생`;
+        setFeature1Progress({ phase: `${chunkLabel} 문장을 생성하는 중`, completed: offset, total: indexes.length });
         const payload = await requestJson<{ results: StudentResult[] }>("/api/generate/feature-1", { ...current, subjects, targetLength, studentsCount: chunk.length, studentIndices: chunk, commonOptions, ...(studentIndex ? { regenerateStudentIndex: studentIndex } : {}) });
         allResults = payload.results.reduce(updateResult, allResults);
-        setFeature1Progress({ phase: studentIndex ? "문장 재생성 중" : "문장 생성 중", completed: offset + chunk.length, total: indexes.length });
+        setFeature1Progress({ phase: `${chunkLabel} 문장 생성 완료`, completed: offset + chunk.length, total: indexes.length });
         setState((value) => ({ ...value, feature1: { ...value.feature1, subjects, results: allResults } }));
       }
       setFeature1Progress({ phase: "생성 완료", completed: indexes.length, total: indexes.length });
       setState((value) => ({ ...value, feature1: { ...value.feature1, subjects: [], results: allResults } }));
-      setMessage("기능 1 문장 생성을 완료했습니다. 각 결과를 검토하고 확정하세요.");
+      setMessage("기능 1 문장 생성을 완료했습니다. 과목별 결과를 검토하고 필요하면 직접 수정하세요.");
     } catch (error) { setFeature1Progress((value) => value ? { ...value, phase: "생성 실패" } : null); reportError(error); } finally { setBusy(false); setProgress(""); }
   };
 
@@ -199,6 +207,18 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
     </section>
   );
 
+  const renderFeature1Results = () => {
+    const results = state.feature1.results;
+    if (results.length === 0) return <section className="results-section"><div className="section-heading"><div><span className="eyebrow">생성 결과</span><h2>과목별 결과</h2></div></div><div className="empty-state">평가계획서를 업로드하면 과목별 결과가 여기에 표시됩니다.</div></section>;
+    const subjectResults = results.filter((result) => result.subject === activeFeature1Subject).sort((left, right) => left.studentIndex - right.studentIndex);
+    const subjectCopy = subjectResults.map((result) => `${result.studentIndex}\n${result.paragraph}`).join("\n\n");
+    return <section className="results-section">
+      <div className="section-heading"><div><span className="eyebrow">생성 결과</span><h2>과목별 결과</h2></div><button type="button" className="button-secondary" onClick={() => void copy(subjectCopy)} disabled={!activeFeature1Subject}>현재 과목 전체 복사</button></div>
+      <div className="subject-tabs" role="tablist" aria-label="과목 선택">{feature1ResultSubjects.map((subject) => <button type="button" role="tab" aria-selected={subject === activeFeature1Subject} className={subject === activeFeature1Subject ? "subject-tab active" : "subject-tab"} key={subject} onClick={() => setSelectedFeature1Subject(subject)}>{subject}</button>)}</div>
+      <div className="subject-result-list">{subjectResults.map((result) => <div className="subject-result-row" key={`${result.subject}-${result.studentIndex}`}><span className="student-number" aria-label={`학생 ${result.studentIndex}`}>{result.studentIndex}</span><textarea aria-label={`${activeFeature1Subject} 학생 ${result.studentIndex} 문단`} rows={4} value={result.paragraph} onChange={(event) => setState((current) => ({ ...current, feature1: { ...current.feature1, results: updateResult(current.feature1.results, { ...result, paragraph: event.target.value, status: "draft" }) } }))} /></div>)}</div>
+    </section>;
+  };
+
   const renderFeature1 = () => <>
     <div className="feature-intro"><span className="eyebrow">기능 1 · 교과 평가</span><h1>평가계획서의 근거로 교과 문장을 만듭니다.</h1><p className="feature1-subtitle">학생 이름 없이 순번만 사용합니다. 문장 생성은 항상 ‘상’ 성취 기준으로 수행되며, 상·중·하 선택은 제공하지 않습니다.</p></div>
     <div className="feature1-steps">
@@ -206,7 +226,7 @@ export function EvaluatorWorkspace({ initialFeature }: { initialFeature: Feature
     <section className="panel"><div className="section-heading"><div><span className="eyebrow">2단계</span><h2>평가계획서 업로드</h2></div><label className="button-secondary file-button">평가계획서 업로드<input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.pptx,.xlsx" disabled={busy} onChange={(event) => void handleSubjectExtraction(event.target.files)} /></label></div><p className="privacy-note">평가계획서를 업로드하면 교과별 영역을 확인한 뒤 설정한 학생 수만큼 자동으로 문장을 생성합니다.</p>{state.feature1.subjects.length > 0 && !busy && <div className="empty-state">{state.feature1.subjects.length}개 교과 영역을 확인했습니다. 아래 결과를 검토해 주세요.</div>}{busy && <div className="inline-loading"><span className="status-point" />{feature1Progress?.phase ?? "문장을 생성하는 중…"}</div>}</section>
     </div>
     {feature1Progress && <div className="generation-progress" role="status" aria-live="polite"><div className="generation-progress-heading"><strong>{feature1Progress.phase}</strong><span>{feature1Progress.completed} / {feature1Progress.total}명</span></div><div className="progress-track" role="progressbar" aria-label="기능1 문장 생성 진행률" aria-valuemin={0} aria-valuemax={feature1Progress.total} aria-valuenow={feature1Progress.completed}><span className="progress-fill" style={{ width: `${feature1Progress.total > 0 ? Math.round((feature1Progress.completed / feature1Progress.total) * 100) : 0}%` }} /></div></div>}
-    {renderResults(state.feature1.results, state.feature1.targetLength, "기능1", async (index) => { if (state.feature1.subjects.length === 0) { setMessage("문장 재생성은 평가계획서를 다시 업로드한 뒤 사용할 수 있습니다."); return; } setBusy(true); try { const payload = await requestJson<{ results: StudentResult[] }>("/api/generate/feature-1", { ...state.feature1, commonOptions, regenerateStudentIndex: index }); setState((current) => ({ ...current, feature1: { ...current.feature1, results: payload.results.reduce(updateResult, current.feature1.results) } })); } catch (error) { reportError(error); } finally { setBusy(false); } }, (results) => setState((current) => ({ ...current, feature1: { ...current.feature1, results } })))}
+    {renderFeature1Results()}
   </>;
 
   const toggleKeyword = (studentIndex: number, label: string) => setFeature2Students(feature2Students.map((student) => student.studentIndex === studentIndex ? { ...student, keywords: student.keywords.includes(label) ? student.keywords.filter((item) => item !== label) : [...student.keywords, label].slice(0, LIMITS.maxKeywordsPerStudent) } : student));
